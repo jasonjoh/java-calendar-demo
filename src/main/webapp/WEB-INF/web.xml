@@ -1,0 +1,27 @@
+<!DOCTYPE web-app PUBLIC
+ "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+ "http://java.sun.com/dtd/web-app_2_3.dtd" >
+
+<web-app>
+  <display-name>Archetype Created Web Application</display-name>
+  <servlet>
+  	<servlet-name>SignUp</servlet-name>
+  	<display-name>SignUp</display-name>
+  	<description></description>
+  	<servlet-class>com.outlook.dev.calendardemo.SignUp</servlet-class>
+  </servlet>
+  <servlet>
+  	<servlet-name>CalendarOperations</servlet-name>
+  	<display-name>CalendarOperations</display-name>
+  	<description></description>
+  	<servlet-class>com.outlook.dev.calendardemo.CalendarOperations</servlet-class>
+  </servlet>
+  <servlet-mapping>
+  	<servlet-name>SignUp</servlet-name>
+  	<url-pattern>/SignUp</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+  	<servlet-name>CalendarOperations</servlet-name>
+  	<url-pattern>/CalendarOperations</url-pattern>
+  </servlet-mapping>
+</web-app>
