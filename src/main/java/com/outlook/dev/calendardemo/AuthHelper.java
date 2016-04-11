@@ -1,19 +1,14 @@
 package com.outlook.dev.calendardemo;
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.io.StringReader;
-import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.URLEncoder;
+import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.KeyStore;
@@ -27,7 +22,9 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.RSAPublicKeySpec;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 
 import javax.json.Json;
@@ -35,31 +32,54 @@ import javax.json.JsonArray;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
 
+import org.apache.http.Consts;
+import org.apache.http.HttpEntity;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicNameValuePair;
+
 public class AuthHelper {
 	private static final String clientId = "3082ece1-b32e-4884-a620-5fb68e5688c7";
 	private static final String certThumbPrint = "LcsZc6fLX3Z5uJ0+TFswojfPRIE=";
-	private static final String authority = "https://login.microsoftonline.com";
-	private static final String authorizeUrl = authority + "/common/oauth2/authorize";
-	private static final String tokenUrl = authority + "/%s/oauth2/token";
+	private static final String authority = "login.microsoftonline.com";
+	private static final String authorizeUrl = "/common/oauth2/authorize";
+	private static final String tokenUrl = "https://" + authority + "/%s/oauth2/token";
 	
 	public static String getSignUpUrl(String redirectUrl, UUID state, UUID nonce){
-		String queryString = "?";
-		try {
-			queryString += "client_id=" + URLEncoder.encode(clientId, "UTF-8");
-			queryString += "&redirect_uri=" + URLEncoder.encode(redirectUrl, "UTF-8");
-			queryString += "&response_type=id_token";
-			queryString += "&scope=openid";
-			queryString += "&state=" + URLEncoder.encode(state.toString(), "UTF-8");
-			queryString += "&nonce=" + URLEncoder.encode(nonce.toString(), "UTF-8");
-			queryString += "&prompt=admin_consent";
-			queryString += "&response_mode=form_post";
-			queryString += "&resource=" + URLEncoder.encode("https://graph.microsoft.com", "UTF-8");
-		} catch (UnsupportedEncodingException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} 
 		
-		return authorizeUrl + queryString;
+		List<NameValuePair> query = new ArrayList<NameValuePair>();
+		query.add(new BasicNameValuePair("client_id", clientId));
+		query.add(new BasicNameValuePair("redirect_uri", redirectUrl));
+		query.add(new BasicNameValuePair("response_type", "id_token"));
+		query.add(new BasicNameValuePair("scope", "openid"));
+		query.add(new BasicNameValuePair("state", state.toString()));
+		query.add(new BasicNameValuePair("nonce", nonce.toString()));
+		query.add(new BasicNameValuePair("prompt", "admin_consent"));
+		query.add(new BasicNameValuePair("response_mode", "form_post"));
+		query.add(new BasicNameValuePair("resource", "https://graph.microsoft.com"));
+		
+		URIBuilder builder = new URIBuilder()
+				.setScheme("https")
+				.setHost(authority)
+				.setPath(authorizeUrl)
+				.setParameters(query);
+		
+		String authUrl = "";
+		try {
+			authUrl = builder.build().toString();
+		} catch (URISyntaxException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		
+		return authUrl;
 	}
 	
 	public static JsonObject validateIdToken(String encodedToken, UUID nonce){
@@ -115,14 +135,16 @@ public class AuthHelper {
 		}
 	}
 	
-	private static boolean verifyTokenSignature(String content, String signature, String alg, String kid){
+	private static boolean verifyTokenSignature(String content, String signature, String alg, String kid) throws IOException{
 		
 		// Get MS OpenID token info
+		CloseableHttpClient httpClient = HttpClients.createDefault();
+		HttpGet getKeyInfo = new HttpGet("https://login.microsoftonline.com/common/discovery/keys");
+		CloseableHttpResponse keyInfoResponse = httpClient.execute(getKeyInfo);
 		String keyInfo = null;
 		try {
-			URL keyInfoUrl = new URL("https://login.microsoftonline.com/common/discovery/keys");
-			URLConnection http = keyInfoUrl.openConnection();
-			BufferedReader keyInfoReader = new BufferedReader(new InputStreamReader(http.getInputStream()));
+			HttpEntity keyInfoEntity = keyInfoResponse.getEntity();
+			BufferedReader keyInfoReader = new BufferedReader(new InputStreamReader(keyInfoEntity.getContent()));
 			keyInfo = keyInfoReader.readLine();
 			keyInfoReader.close();
 		} catch (MalformedURLException e) {
@@ -131,6 +153,9 @@ public class AuthHelper {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		}
+		finally {
+			keyInfoResponse.close();
 		}
 		
 		if (keyInfo != null) {
@@ -203,32 +228,28 @@ public class AuthHelper {
 		return false;
 	}
 	
-	public static JsonObject getAccessToken(String redirectUrl, String tenantId, InputStream keystoreStream){
+	public static JsonObject getAccessToken(String redirectUrl, String tenantId, InputStream keystoreStream) throws ClientProtocolException, IOException{
 		JsonObject accessTokenObj = null;
-		String accessToken = null;
 		
+		String assertion = getClientAssertion(String.format(tokenUrl, tenantId), keystoreStream);
+		
+		List<NameValuePair> tokenReqParams = new ArrayList<NameValuePair>();
+		tokenReqParams.add(new BasicNameValuePair("resource", "https://graph.microsoft.com"));
+		tokenReqParams.add(new BasicNameValuePair("client_id", clientId));
+		tokenReqParams.add(new BasicNameValuePair("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"));
+		tokenReqParams.add(new BasicNameValuePair("client_assertion", assertion));
+		tokenReqParams.add(new BasicNameValuePair("grant_type", "client_credentials"));
+		tokenReqParams.add(new BasicNameValuePair("redirect_uri", redirectUrl));
+		
+		UrlEncodedFormEntity tokenReqForm = new UrlEncodedFormEntity(tokenReqParams, Consts.UTF_8);
+		
+		CloseableHttpClient httpClient = HttpClients.createDefault();
+		HttpPost getTokenReq = new HttpPost(String.format(tokenUrl, tenantId));
+		getTokenReq.setEntity(tokenReqForm);
+		CloseableHttpResponse tokenResponse = httpClient.execute(getTokenReq);
 		try {
-			URL tokenReqUrl = new URL(String.format(tokenUrl, tenantId));
-			
-			String assertion = getClientAssertion(tokenReqUrl.toString(), keystoreStream);
-			
-			String tokenRequest = "resource=" + URLEncoder.encode("https://graph.microsoft.com", "UTF-8");
-			tokenRequest += "&client_id=" + URLEncoder.encode(clientId, "UTF-8");
-			tokenRequest += "&client_assertion_type=" + URLEncoder.encode("urn:ietf:params:oauth:client-assertion-type:jwt-bearer", "UTF-8");
-			tokenRequest += "&client_assertion=" + URLEncoder.encode(assertion, "UTF-8");
-			tokenRequest += "&grant_type=client_credentials";
-			tokenRequest += "&redirect_uri=" + URLEncoder.encode(redirectUrl, "UTF-8");
-			
-			URLConnection conn = tokenReqUrl.openConnection();
-			conn.setDoOutput(true);
-			conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-			
-			OutputStreamWriter out = new OutputStreamWriter(conn.getOutputStream());
-			out.write(tokenRequest);
-			out.close();
-			
-			BufferedReader tokenResponseReader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-			accessToken = tokenResponseReader.readLine();
+			BufferedReader tokenResponseReader = new BufferedReader(new InputStreamReader(tokenResponse.getEntity().getContent()));
+			String accessToken = tokenResponseReader.readLine();
 			tokenResponseReader.close();
 			
 			JsonReader tokenReader = Json.createReader(new StringReader(accessToken));
@@ -241,6 +262,9 @@ public class AuthHelper {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		}
+		finally {
+			tokenResponse.close();
 		}
 		
 		return accessTokenObj;
