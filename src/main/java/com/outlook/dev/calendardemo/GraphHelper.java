@@ -2,6 +2,7 @@ package com.outlook.dev.calendardemo;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URISyntaxException;
 import java.text.DateFormat;
@@ -67,13 +68,13 @@ public class GraphHelper {
 				request = new HttpGet(builder.build());
 				break;
 			case POST:
-				StringEntity postBody = new StringEntity("", ContentType.APPLICATION_JSON);
+				StringEntity postBody = new StringEntity(options.payload.toString(), ContentType.APPLICATION_JSON);
 				HttpPost postRequest = new HttpPost(builder.build());
 				postRequest.setEntity(postBody);
 				request = postRequest;
 				break;
 			case PATCH:
-				StringEntity patchBody = new StringEntity("", ContentType.APPLICATION_JSON);
+				StringEntity patchBody = new StringEntity(options.payload.toString(), ContentType.APPLICATION_JSON);
 				HttpPatch patchRequest = new HttpPatch(builder.build());
 				patchRequest.setEntity(patchBody);
 				request = patchRequest;
@@ -102,10 +103,12 @@ public class GraphHelper {
 			}
 			
 			CloseableHttpResponse apiResponse = httpClient.execute(request);
-			HttpEntity responseEntity = apiResponse.getEntity();
+			if (apiResponse.getStatusLine().getStatusCode() != 204) {
+				HttpEntity responseEntity = apiResponse.getEntity();
+				JsonReader responseReader = Json.createReader(responseEntity.getContent());
+				response = responseReader.readObject();
+			}
 			
-			JsonReader responseReader = Json.createReader(responseEntity.getContent());
-			response = responseReader.readObject();
 		} catch (URISyntaxException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -151,5 +154,39 @@ public class GraphHelper {
 		callOptions.method = HttpMethod.GET;
 		
 		return GraphHelper.makeApiCall(callOptions);
+	}
+	
+	public static JsonObject createEvent(String accessToken, String user, JsonObject event) {
+		
+		ApiCallOptions callOptions = new ApiCallOptions();
+		callOptions.relativeUrl = String.format("users/%s/events", user);
+		callOptions.accessToken = accessToken;
+		callOptions.userEmail = user;
+		callOptions.method = HttpMethod.POST;
+		callOptions.payload = event;
+		
+		return GraphHelper.makeApiCall(callOptions);
+	}
+	
+	public static JsonObject updateEvent(String accessToken, String user, String itemId, JsonObject update) {
+		
+		ApiCallOptions callOptions = new ApiCallOptions();
+		callOptions.relativeUrl = String.format("users/%s/events/%s", user, itemId);
+		callOptions.accessToken = accessToken;
+		callOptions.userEmail = user;
+		callOptions.method = HttpMethod.PATCH;
+		callOptions.payload = update;
+		
+		return GraphHelper.makeApiCall(callOptions);
+	}
+	
+	public static void deleteEvent(String accessToken, String user, String itemId) {
+		ApiCallOptions callOptions = new ApiCallOptions();
+		callOptions.relativeUrl = String.format("users/%s/events/%s", user, itemId);
+		callOptions.accessToken = accessToken;
+		callOptions.userEmail = user;
+		callOptions.method = HttpMethod.DELETE;
+		
+		GraphHelper.makeApiCall(callOptions);
 	}
 }
