@@ -46,8 +46,8 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 
 public class AuthHelper {
-	private static final String clientId = "3082ece1-b32e-4884-a620-5fb68e5688c7";
-	private static final String certThumbPrint = "LcsZc6fLX3Z5uJ0+TFswojfPRIE=";
+	private static final String clientId = "YOUR CLIENT ID HERE";
+	private static final String certThumbPrint = "YOUR CERT THUMBPRINT HERE";
 	private static final String authority = "login.microsoftonline.com";
 	private static final String authorizeUrl = "/common/oauth2/authorize";
 	private static final String tokenUrl = "https://" + authority + "/%s/oauth2/token";
