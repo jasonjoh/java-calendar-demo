@@ -98,18 +98,23 @@ public class CalendarOperations extends HttpServlet {
 	}
 	
 	private String getOrRefreshAccessToken(HttpSession session, String redirectUrl) {
-		
+		// Get the token from the session
 		JsonObject accessToken = (JsonObject)session.getAttribute("cal_demo_token");
 		Date expiry = null;
 		
 		if (accessToken != null){
+			// If there is a token in the session, get the expiration time
+			// Expiration is stored as Unix epoch time
 			expiry = new Date(Long.parseLong(accessToken.getString("expires_on"))* 1000);
 		}
 		
 		if (accessToken == null || expiry.before(new Date())) {
+			// If there's no token or the token is expired, request a new one
 			String tenantId = session.getAttribute("cal_demo_tenantid").toString();
 			// Request a new token
 			// Get the private key store
+			// This keystore has the private key that corresponds to the public key uploaded to
+			// our app registration.
 			InputStream keystore = this.getServletContext().getResourceAsStream("/WEB-INF/calendardemo.jks");
 
 			try {
@@ -161,6 +166,10 @@ public class CalendarOperations extends HttpServlet {
 		
 		JsonObject apiResponse = null;
 		
+		// Since there may be more uses in the org than our page size (50),
+		// we need to check for a nextLink value and make consecutive calls
+		// until we get all of the users.
+		
 		do {
 			String nextLink = null;
 			if (null != apiResponse) {
@@ -174,6 +183,7 @@ public class CalendarOperations extends HttpServlet {
 				String upn = user.getString("userPrincipalName");
 				String display = user.getString("displayName");
 				
+				// If this user matches the currently selected user, set the selected attribute
 				String format = upn.equals(match) ? "<option value=%s selected>%s</option>" : "<option value=%s>%s</option>";
 				
 				htmlOptions.append(String.format(format, upn, display));			}
@@ -188,6 +198,8 @@ public class CalendarOperations extends HttpServlet {
 	private String BuildDefaultCalendarView(String accessToken, String user) {
 		StringBuilder view = new StringBuilder();
 		
+		// Set the start of our view window to midnight today, and
+		// the end to midnight 7 days from now
 		Calendar cal = new GregorianCalendar();
 		cal.set(Calendar.HOUR_OF_DAY, 0);
 		cal.set(Calendar.MINUTE, 0);
@@ -203,6 +215,8 @@ public class CalendarOperations extends HttpServlet {
 		view.append("<table style=\"border-style: solid; border-width: 1px;\">");
 		view.append("<tr><th>Subject</th><th>Start</th><th>End</th><th>Location</th><th>Actions</th></tr>");
 		
+		// Calendar views are paged as well, but for simplicity we're just showing the first page using
+		// the default page size (10)
 		JsonObject eventsResponse = GraphHelper.getUserCalendar(accessToken, user, viewStart, viewEnd);
 		JsonArray events = eventsResponse.getJsonArray("value");
 		for (int i = 0; i < events.size(); i++) {
@@ -241,12 +255,40 @@ public class CalendarOperations extends HttpServlet {
 		newEventBuilder.add("end", endBuilder);
 		newEventBuilder.add("location", locationBuilder);
 		
+		// Using JsonBuilder to create the JSON structure, which should end up looking like:
+		
+		/*
+		 {
+		   "subject": "New appointment",
+		   "start": {
+		     "dateTime": "2016-04-12T21:00:00",
+		     "timeZone": "UTC"
+		   },
+		   "end": {
+		     "dateTime": "2016-04-12T21:30:00",
+		     "timeZone": "UTC"
+		   },
+		   "location": {
+		     "displayName": "My Office"
+		   },
+		 }
+		 */
+		
 		return GraphHelper.createEvent(accessToken, user, newEventBuilder.build());
 	}
 	
 	private void UpdateEventSubject(String accessToken, String user, String itemId) {
 		JsonObjectBuilder updateBuilder = Json.createObjectBuilder();
 		updateBuilder.add("subject", "UPDATED SUBJECT");
+		
+		// When doing an update, you only have to include fields you want to
+		// change, for example:
+		
+		/*
+		 {
+		   "subject": "UPDATED SUBJECT"
+		 }
+		 */
 		
 		JsonObject updateResult = GraphHelper.updateEvent(accessToken, user, itemId, updateBuilder.build());
 	}

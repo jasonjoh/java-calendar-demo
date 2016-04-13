@@ -37,6 +37,12 @@ import org.apache.http.message.BasicNameValuePair;
 public class GraphHelper {
 	public static String endPoint = "https://graph.microsoft.com/v1.0/";
 	
+	/**
+	 * This method is used to do the actual REST calls to the server and read the response
+	 * 
+	 * @param options - The ApiCallOptions object that specifies the call parameters
+	 * @return A JsonObject representation of the response body (if applicable)
+	 */
 	public static JsonObject makeApiCall(ApiCallOptions options) {
 		JsonObject response = null;
 		
@@ -47,6 +53,10 @@ public class GraphHelper {
 		try {
 			URIBuilder builder = null;
 			if (null != options.absoluteUrl) {
+				// The absoluteUrl option is used to bypass URL building
+				// When parsing a response from the server when paging is involved,
+				// the server provides a "nextLink", which is a full URL to get the next
+				// page. In this case, we want to just use that value as-is
 				builder = new URIBuilder(options.absoluteUrl);
 			}
 			else {
@@ -85,16 +95,26 @@ public class GraphHelper {
 			}
 			
 			BasicHeader[] requestHeaders = new BasicHeader[3];
+			// The access token goes in the Authorization header
 			requestHeaders[0] = new BasicHeader("Authorization", "Bearer " + options.accessToken);
+			// Best practice to provide a client-request id
+			// This is logged in our telemetry and helps us to find your requests if you contact
+			// support for assistance
 			requestHeaders[1] = new BasicHeader("client-request-id", UUID.randomUUID().toString());
+			// Setting this to true causes the value you provide in client-request-id to be
+			// included in the response, making it easier to correlate requests/responses.
 			requestHeaders[2] = new BasicHeader("return-client-request-id", "true");
 			request.setHeaders(requestHeaders);
 			
 			if (null != options.userEmail) {
+				// Setting this helps the Outlook service route calls to the
+				// correct mailbox server more efficiently
 				request.addHeader("X-AnchorMailbox", options.userEmail);
 			}
 			
 			if (null != options.timezone) {
+				// Optional timezone. If set on calendar calls, the server treats
+				// all date/times in the specified time zone.
 				request.addHeader("Prefer", "outlook.timezone=\"" + options.timezone + "\"");
 			}
 			
@@ -132,7 +152,7 @@ public class GraphHelper {
 		else {
 			callOptions.relativeUrl = "users";
 			callOptions.queryOptions = new ArrayList<NameValuePair>(1);
-			callOptions.queryOptions.add(new BasicNameValuePair("$top", "10"));
+			callOptions.queryOptions.add(new BasicNameValuePair("$top", "50"));
 		}
 		callOptions.accessToken = accessToken;
 		callOptions.method = HttpMethod.GET;
