@@ -47,11 +47,15 @@ import org.apache.http.message.BasicNameValuePair;
 
 public class AuthHelper {
 	// These values are used when doing the single user signup
+	private static final String userSignUpClientId = "YOUR V2 CLIENT ID HERE";
+	private static final String userSignUpClientSecret = "YOUR V2 CLIENT SECRET HERE";
 	private static final String userAuthority = "login.microsoftonline.com";
 	private static final String userAuthorizeUrl = "/common/oauth2/v2.0/authorize";
 	private static final String userTokenUrl = "https://" + userAuthority + "/%s/oauth2/v2.0/token";
 	
 	// These values are used when doing the organizational signup
+	private static final String orgSignUpClientId = "YOUR V1 CLIENT ID HERE";
+	private static final String certThumbPrint = "YOUR V1 CERT THUMBPRINT HERE";
 	private static final String adminAuthority = "login.microsoftonline.com";
 	private static final String adminAuthorizeUrl = "/common/oauth2/authorize";
 	private static final String adminTokenUrl = "https://" + adminAuthority + "/%s/oauth2/token";
