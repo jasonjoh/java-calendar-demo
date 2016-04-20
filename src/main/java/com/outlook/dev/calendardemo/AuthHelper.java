@@ -46,29 +46,37 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 
 public class AuthHelper {
-	private static final String clientId = "YOUR CLIENT ID HERE";
-	private static final String certThumbPrint = "YOUR CERT THUMBPRINT HERE";
-	private static final String authority = "login.microsoftonline.com";
-	private static final String authorizeUrl = "/common/oauth2/authorize";
-	private static final String tokenUrl = "https://" + authority + "/%s/oauth2/token";
+	// These values are used when doing the single user signup
+	private static final String userAuthority = "login.microsoftonline.com";
+	private static final String userAuthorizeUrl = "/common/oauth2/v2.0/authorize";
+	private static final String userTokenUrl = "https://" + userAuthority + "/%s/oauth2/v2.0/token";
 	
-	public static String getSignUpUrl(String redirectUrl, UUID state, UUID nonce){
+	// These values are used when doing the organizational signup
+	private static final String adminAuthority = "login.microsoftonline.com";
+	private static final String adminAuthorizeUrl = "/common/oauth2/authorize";
+	private static final String adminTokenUrl = "https://" + adminAuthority + "/%s/oauth2/token";
+	
+	public static String getUserSignUpUrl(String redirectUrl, UUID state, UUID nonce) {
+		
+		StringBuilder scopes = new StringBuilder();
+		scopes.append("openid")
+			.append(" ").append("offline_access")
+			.append(" ").append("profile")
+			.append(" ").append("https://graph.microsoft.com/calendars.readwrite");
 		
 		List<NameValuePair> query = new ArrayList<NameValuePair>();
-		query.add(new BasicNameValuePair("client_id", clientId));
+		query.add(new BasicNameValuePair("client_id", userSignUpClientId));
 		query.add(new BasicNameValuePair("redirect_uri", redirectUrl));
-		query.add(new BasicNameValuePair("response_type", "id_token"));
-		query.add(new BasicNameValuePair("scope", "openid"));
+		query.add(new BasicNameValuePair("response_type", "code id_token"));
+		query.add(new BasicNameValuePair("scope", scopes.toString()));
 		query.add(new BasicNameValuePair("state", state.toString()));
 		query.add(new BasicNameValuePair("nonce", nonce.toString()));
-		query.add(new BasicNameValuePair("prompt", "admin_consent"));
 		query.add(new BasicNameValuePair("response_mode", "form_post"));
-		query.add(new BasicNameValuePair("resource", "https://graph.microsoft.com"));
 		
 		URIBuilder builder = new URIBuilder()
 				.setScheme("https")
-				.setHost(authority)
-				.setPath(authorizeUrl)
+				.setHost(userAuthority)
+				.setPath(userAuthorizeUrl)
 				.setParameters(query);
 		
 		String authUrl = "";
@@ -82,7 +90,45 @@ public class AuthHelper {
 		return authUrl;
 	}
 	
-	public static JsonObject validateIdToken(String encodedToken, UUID nonce){
+	public static String getAdminSignUpUrl(String redirectUrl, UUID state, UUID nonce) {
+		
+		List<NameValuePair> query = new ArrayList<NameValuePair>();
+		query.add(new BasicNameValuePair("client_id", orgSignUpClientId));
+		query.add(new BasicNameValuePair("redirect_uri", redirectUrl));
+		query.add(new BasicNameValuePair("response_type", "id_token"));
+		query.add(new BasicNameValuePair("scope", "openid"));
+		query.add(new BasicNameValuePair("state", state.toString()));
+		query.add(new BasicNameValuePair("nonce", nonce.toString()));
+		query.add(new BasicNameValuePair("prompt", "admin_consent"));
+		query.add(new BasicNameValuePair("response_mode", "form_post"));
+		query.add(new BasicNameValuePair("resource", "https://graph.microsoft.com"));
+		
+		URIBuilder builder = new URIBuilder()
+				.setScheme("https")
+				.setHost(adminAuthority)
+				.setPath(adminAuthorizeUrl)
+				.setParameters(query);
+		
+		String authUrl = "";
+		try {
+			authUrl = builder.build().toString();
+		} catch (URISyntaxException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		
+		return authUrl;
+	}
+	
+	public static JsonObject validateUserToken(String encodedToken, UUID nonce) {
+		return validateIdToken(encodedToken, nonce, userSignUpClientId);
+	}
+	
+	public static JsonObject validateAdminToken(String encodedToken, UUID nonce){
+		return validateIdToken(encodedToken, nonce, orgSignUpClientId);
+	}
+	
+	private static JsonObject validateIdToken(String encodedToken, UUID nonce, String clientId){
 		JsonObject tokenObj = null;
 		
 		String[] tokenParts = encodedToken.split("\\.");
@@ -130,9 +176,8 @@ public class AuthHelper {
 		catch (Throwable ex){
 			ex.printStackTrace();
 		}
-		finally {
-			return tokenObj;
-		}
+		
+		return tokenObj;
 	}
 	
 	private static boolean verifyTokenSignature(String content, String signature, String alg, String kid) throws IOException{
@@ -228,14 +273,14 @@ public class AuthHelper {
 		return false;
 	}
 	
-	public static JsonObject getAccessToken(String redirectUrl, String tenantId, InputStream keystoreStream) throws ClientProtocolException, IOException{
+	public static JsonObject getOrganizationAccessToken(String redirectUrl, String tenantId, InputStream keystoreStream) throws ClientProtocolException, IOException{
 		JsonObject accessTokenObj = null;
 		
-		String assertion = getClientAssertion(String.format(tokenUrl, tenantId), keystoreStream);
+		String assertion = getClientAssertion(String.format(adminTokenUrl, tenantId), keystoreStream);
 		
 		List<NameValuePair> tokenReqParams = new ArrayList<NameValuePair>();
 		tokenReqParams.add(new BasicNameValuePair("resource", "https://graph.microsoft.com"));
-		tokenReqParams.add(new BasicNameValuePair("client_id", clientId));
+		tokenReqParams.add(new BasicNameValuePair("client_id", orgSignUpClientId));
 		tokenReqParams.add(new BasicNameValuePair("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"));
 		tokenReqParams.add(new BasicNameValuePair("client_assertion", assertion));
 		tokenReqParams.add(new BasicNameValuePair("grant_type", "client_credentials"));
@@ -244,7 +289,7 @@ public class AuthHelper {
 		UrlEncodedFormEntity tokenReqForm = new UrlEncodedFormEntity(tokenReqParams, Consts.UTF_8);
 		
 		CloseableHttpClient httpClient = HttpClients.createDefault();
-		HttpPost getTokenReq = new HttpPost(String.format(tokenUrl, tenantId));
+		HttpPost getTokenReq = new HttpPost(String.format(adminTokenUrl, tenantId));
 		getTokenReq.setEntity(tokenReqForm);
 		CloseableHttpResponse tokenResponse = httpClient.execute(getTokenReq);
 		try {
@@ -285,8 +330,8 @@ public class AuthHelper {
 		long exp = nbf + 900L;
 		
 		String assertionHeader = "{ \"alg\": \"RS256\", \"x5t\": \"" + certThumbPrint +  "\" }";
-		String assertionPayload = "{ \"sub\": \"" + clientId + "\", ";
-		assertionPayload += "\"iss\": \"" + clientId + "\", ";
+		String assertionPayload = "{ \"sub\": \"" + orgSignUpClientId + "\", ";
+		assertionPayload += "\"iss\": \"" + orgSignUpClientId + "\", ";
 		assertionPayload += "\"jti\": \"" + UUID.randomUUID().toString() + "\", ";
 		assertionPayload += "\"exp\": \"" + exp + "\", ";
 		assertionPayload += "\"nbf\": \"" + nbf + "\", ";

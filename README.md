@@ -110,7 +110,7 @@ Next we need to provide the public key for our new certificate to Azure AD so th
   
 ## Run the sample
 
-1. Open the `java-calendar-demo` project in Eclipse. Open the `./src/main/java/com/outlook/dev/calendardemo/AuthHelper.java` file and replace the `YOUR CLIEN ID HERE` string with the client ID you copied after creating the app in Azure.
-1. Replace the `YOUR CERT THUMBPRINT HERE` with the value of `customKeyIdentifier` from your app's manifest.
+1. Open the `java-calendar-demo` project in Eclipse. Open the `./src/main/java/com/outlook/dev/calendardemo/AuthHelper.java` file and replace the `YOUR V1 CLIENT ID HERE` string with the client ID you copied after creating the app in Azure.
+1. Replace the `YOUR V1 CERT THUMBPRINT HERE` with the value of `customKeyIdentifier` from your app's manifest.
 1. Save the file and run the app.
 1. Browse to `http://localhost:8080/java-calendar-demo`.

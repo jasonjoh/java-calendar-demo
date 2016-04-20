@@ -118,7 +118,7 @@ public class CalendarOperations extends HttpServlet {
 			InputStream keystore = this.getServletContext().getResourceAsStream("/WEB-INF/calendardemo.jks");
 
 			try {
-				accessToken = AuthHelper.getAccessToken(redirectUrl, tenantId, keystore);
+				accessToken = AuthHelper.getOrganizationAccessToken(redirectUrl, tenantId, keystore);
 			} catch (ClientProtocolException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
