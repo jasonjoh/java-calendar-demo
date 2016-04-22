@@ -21,4 +21,14 @@ public class DateTimeTimeZone {
 	public void setTimeZone(String timeZone) {
 		this.timeZone = timeZone;
 	}
+	
+	public DateTimeTimeZone(String dateTime, String timeZone) {
+		this.dateTime = dateTime;
+		this.timeZone = timeZone;
+	}
+	
+	public DateTimeTimeZone() {
+		this.dateTime = null;
+		this.timeZone = null;
+	}
 }

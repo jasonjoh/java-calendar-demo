@@ -76,4 +76,15 @@ public class Event extends Base {
 	public void setSubject(String subject) {
 		this.subject = subject;
 	}
+	
+	public Event() {
+		this.attendees = null;
+		this.body = null;
+		this.categories = null;
+		this.end = null;
+		this.iCalUId = null;
+		this.location = null;
+		this.start = null;
+		this.subject = null;
+	}
 }

@@ -4,6 +4,10 @@
 <%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
 <t:layout title="Events">
+	<ol class="breadcrumb">
+		<li><a href="/java-calendar-demo/Calendars?selected-user=${selectedUser}">All Calendars</a></li>
+		<li class="active">Current Calendar</li>
+	</ol>
 	<div class="panel panel-default">
 		<div class="panel-heading">Date Range</div>
 		<div class="panel-body">

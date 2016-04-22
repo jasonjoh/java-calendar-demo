@@ -113,6 +113,38 @@ public interface GraphCalendarService {
 		@Header("Authorization") String bearer
 	);
 	
+	@GET("/{version}/me/events/{id}")
+	Call<Event> getEvent(
+		@Path("version") String version,
+		@Path("id") String id,
+		@Header("Authorization") String bearer
+	);
+	
+	@GET("/{version}/users/{user}/events/{id}")
+	Call<Event> getEvent(
+		@Path("version") String version,
+		@Path("user") String user,
+		@Path("id") String id,
+		@Header("Authorization") String bearer
+	);
+	
+	@PATCH("/{version}/me/events/{id}")
+	Call<Event> updateEvent(
+		@Path("version") String version,
+		@Path("id") String id,
+		@Body Event event,
+		@Header("Authorization") String bearer
+	);
+	
+	@PATCH("/{version}/users/{user}/events/{id}")
+	Call<Event> updateEvent(
+		@Path("version") String version,
+		@Path("user") String user,
+		@Path("id") String id,
+		@Body Event event,
+		@Header("Authorization") String bearer
+	);
+	
 	@DELETE("/{version}/me/events/{id}")
 	Call<ResponseBody> deleteEvent(
 		@Path("version") String version,

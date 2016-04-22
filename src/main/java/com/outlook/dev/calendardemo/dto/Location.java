@@ -21,4 +21,10 @@ public class Location {
 	public void setDisplayName(String displayName) {
 		this.displayName = displayName;
 	}
+	
+	public Location(PhysicalAddress address, String displayName) {
+		super();
+		this.address = address;
+		this.displayName = displayName;
+	}
 }
