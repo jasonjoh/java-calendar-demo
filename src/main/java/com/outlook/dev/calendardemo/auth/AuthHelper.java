@@ -42,14 +42,15 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class AuthHelper {
 	// These values are used when doing the single user signup
-	private static final String userSignUpClientId = "7ed5e81b-fbd8-4c42-b1be-914381134957";
-	private static final String userSignUpClientSecret = "jfjR6hVuuuDP9QvmpbjJMnt";
+	private static final String userSignUpClientId = "YOUR V2 CLIENT ID HERE";
+	private static final String userSignUpClientSecret = "YOUR V2 CLIENT SECRET HERE";
 	private static final String userAuthority = "login.microsoftonline.com";
 	private static final String userAuthorizeUrl = "/common/oauth2/v2.0/authorize";
 	
 	// These values are used when doing the organizational signup
-	private static final String orgSignUpClientId = "3082ece1-b32e-4884-a620-5fb68e5688c7";
-	private static final String certThumbPrint = "LcsZc6fLX3Z5uJ0+TFswojfPRIE=";
+	private static final String orgSignUpClientId = "YOUR V1 CLIENT ID HERE";
+	private static final String certThumbPrint = "YOUR CERT THUMBPRINT HERE";
+	
 	private static final String adminAuthority = "login.microsoftonline.com";
 	private static final String adminAuthorizeUrl = "/common/oauth2/authorize";
 	private static final String adminTokenUrl = "https://" + adminAuthority + "/%s/oauth2/token";
