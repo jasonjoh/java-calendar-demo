@@ -10,6 +10,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import com.outlook.dev.calendardemo.auth.AuthHelper;
 import com.outlook.dev.calendardemo.dto.User;
 
 /**
@@ -21,6 +22,9 @@ public class AuthorizeOrganization extends HttpServlet {
 	/**
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
 	 */
+	
+	// This implements the redirect URL for the organization login. This is where
+	// Azure's login page will redirect the browser after the user logs in and consents.
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		// Retrieve the saved state and nonce for comparison
 		HttpSession session = request.getSession();
@@ -55,6 +59,8 @@ public class AuthorizeOrganization extends HttpServlet {
 				if (token != null){
 					// Token is valid, we can proceed
 					User user = new User(token, true);
+					// Save the consenting user. The app doesn't operate in this user's context,
+					// but we're taking advantage of the User object because it can store our access token
 					session.setAttribute("user", user);
 					response.sendRedirect("Calendars");
 					return;

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <%@tag pageEncoding="UTF-8"%>
 <%@attribute name="title"%>
+<%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
 <html>
 <head>
@@ -19,6 +20,30 @@
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
 </head>
 <body>
-	<jsp:doBody/>
+	<!-- Fixed navbar -->
+    <nav class="navbar navbar-default navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="/java-calendar-demo">Java Calendar Demo</a>
+        </div>
+        <c:if test="${not empty user}">
+	        <div id="navbar" class="navbar-collapse collapse">
+	          <ul class="nav navbar-nav navbar-right">
+	          	<li><a href="/java-calendar-demo/Calendars">Signed in as ${user.getDisplayName()}</a></li>
+	            <li><a href="/java-calendar-demo/SignOut">Sign out</a></li>
+	          </ul>
+	        </div><!--/.nav-collapse -->
+        </c:if>
+      </div>
+    </nav>
+    <div class="container body-content" style="padding-top: 70px;">
+		<jsp:doBody/>
+	</div>
 </body>
 </html>

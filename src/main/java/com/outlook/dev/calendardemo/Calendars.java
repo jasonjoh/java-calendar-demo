@@ -1,8 +1,6 @@
 package com.outlook.dev.calendardemo;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -10,8 +8,14 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import com.outlook.dev.calendardemo.auth.AuthHelper;
 import com.outlook.dev.calendardemo.dto.Calendar;
+import com.outlook.dev.calendardemo.dto.GraphArray;
+import com.outlook.dev.calendardemo.dto.OrgUser;
 import com.outlook.dev.calendardemo.dto.User;
+import com.outlook.dev.calendardemo.msgraph.GraphCalendarService;
+import com.outlook.dev.calendardemo.msgraph.GraphServiceHelper;
+import com.outlook.dev.calendardemo.msgraph.GraphUserService;
 
 /**
  * Servlet implementation class Calendars
@@ -22,42 +26,106 @@ public class Calendars extends HttpServlet {
 	/**
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
 	 */
+	// List a user's calendars
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		HttpSession session = request.getSession();
-		User user = (User)session.getAttribute("user");
+		User user = ensureUser(request);
 		
 		if (null == user) {
 			// Not signed in
 			response.sendRedirect("index.jsp");
+			return;
+		}
+		
+		// Selected user is set to the logged in user if the app is using single-user flow
+		// If the app is using the organization flow, the user can change the selected user on the page
+		String selectedUser = request.getParameter("selected-user");
+		if (null != selectedUser) {
+			request.setAttribute("selectedUser", selectedUser);
+		}
+		else {
+			selectedUser = user.getId();
+			request.setAttribute("selectedUser", selectedUser);
 		}
 		
 		if (user.isConsentedForOrg()) {
+			// If the is the org flow, we need to populate a drop down with a list of users
+			// This executes every time the page loads, which isn't terribly efficient
+			// It is probably a better idea to cache the user list in a database somewhere
 			// Get list of users from Graph
-		}
+			GraphUserService userService = GraphServiceHelper.getUserService();
+			GraphArray<OrgUser> users = userService.getUsers("v1.0", user.getAccessToken()).execute().body();
+			request.setAttribute("users", users.getValue());
+		}		
 		
+		GraphCalendarService calService = GraphServiceHelper.getCalendarService();
+		GraphArray<Calendar> userCalendars = null;
 		// Get list of user's calendars
-		List<Calendar> userCalendars = new ArrayList<Calendar>();
-		Calendar foo = new Calendar();
-		foo.setName("Foo");
-		foo.setColor("auto");
-		
-		Calendar bar = new Calendar();
-		bar.setName("Bar");
-		bar.setColor("lightBlue");
-		userCalendars.add(foo);
-		userCalendars.add(bar);
-		
-		request.setAttribute("calendars", userCalendars);
-		
+		userCalendars = calService.getCalendars("v1.0", selectedUser, user.getAccessToken()).execute().body();
+		request.setAttribute("calendars", null == userCalendars ? null : userCalendars.getValue());
 		request.getRequestDispatcher("Calendars.jsp").forward(request, response);
 	}
 
 	/**
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
 	 */
+	// Make some change to the user's calendar list (create, update, delete)
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		// TODO Auto-generated method stub
+		User user = ensureUser(request);
+		if (null == user) {
+			// Not signed in
+			response.sendRedirect("index.jsp");
+			return;
+		}
+		
+		String selectedUser = request.getParameter("selected-user");
+		
+		GraphCalendarService calService = GraphServiceHelper.getCalendarService();
+		
+		// Figure out which operation we are doing
+		String calendarOp = request.getParameter("calendar-op");
+		if (calendarOp.equals("create")) {
+			String name = request.getParameter("new-cal-name");
+			String color = request.getParameter("new-cal-color");
+			
+			Calendar newCalendar = new Calendar(name, color);
+			Calendar result = calService.createCalendar("v1.0", selectedUser, newCalendar, user.getAccessToken()).execute().body();
+		}
+		else if (calendarOp.equals("rename")) {
+			String updateId = request.getParameter("calendar-id");
+			String newName = request.getParameter("new-name");
+			Calendar update = new Calendar();
+			update.setName(newName);
+			calService.updateCalendar("v1.0", selectedUser, updateId, update, user.getAccessToken()).execute();
+		}
+		else if (calendarOp.equals("delete")) {
+			String deleteId = request.getParameter("calendar-id");
+			calService.deleteCalendar("v1.0", selectedUser, deleteId, user.getAccessToken()).execute();
+		}
+		
+		// Now that the change is made, reload the list of calendars
 		doGet(request, response);
 	}
-
+	
+	// Helper method to make sure there is a user in the session
+	// and check if the access token is expired. Refresh the token
+	// if it is expired.
+	private User ensureUser(HttpServletRequest request) {
+		HttpSession session = request.getSession();
+		User user = (User)session.getAttribute("user");
+		
+		if (null == user) {
+			return null;
+		}
+		
+		if (user.isTokenExpired()) {
+			String authServlet = user.isConsentedForOrg() ? "AuthorizeOrganization" : "AuthorizeUser";
+			StringBuffer requestUrl = request.getRequestURL();
+			String redirectUrl = requestUrl.replace(requestUrl.lastIndexOf("/") + 1, requestUrl.length(), authServlet).toString();
+			
+			user.setTokenObj(AuthHelper.getTokenSilently(user, redirectUrl, this.getServletContext()));
+			session.setAttribute("user", user);
+		}
+		
+		return user;
+	}
 }

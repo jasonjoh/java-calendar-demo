@@ -25,6 +25,10 @@
     <servlet-name>SignOut</servlet-name>
     <servlet-class>com.outlook.dev.calendardemo.SignOut</servlet-class>
   </servlet>
+  <servlet>
+    <servlet-name>Events</servlet-name>
+    <servlet-class>com.outlook.dev.calendardemo.Events</servlet-class>
+  </servlet>
   <servlet-mapping>
     <servlet-name>SignUp</servlet-name>
     <url-pattern>/SignUp</url-pattern>
@@ -48,5 +52,9 @@
   <servlet-mapping>
     <servlet-name>SignOut</servlet-name>
     <url-pattern>/SignOut</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>Events</servlet-name>
+    <url-pattern>/Events</url-pattern>
   </servlet-mapping>
 </web-app>

@@ -1,4 +1,4 @@
-package com.outlook.dev.calendardemo;
+package com.outlook.dev.calendardemo.rawrest;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -18,6 +18,9 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import org.apache.http.client.ClientProtocolException;
+
+import com.outlook.dev.calendardemo.auth.AuthHelper;
+import com.outlook.dev.calendardemo.auth.AzureToken;
 
 /**
  * Servlet implementation class CalendarOperations
@@ -99,13 +102,13 @@ public class CalendarOperations extends HttpServlet {
 	
 	private String getOrRefreshAccessToken(HttpSession session, String redirectUrl) {
 		// Get the token from the session
-		JsonObject accessToken = (JsonObject)session.getAttribute("cal_demo_token");
+		AzureToken accessToken = (AzureToken)session.getAttribute("cal_demo_token");
 		Date expiry = null;
 		
 		if (accessToken != null){
 			// If there is a token in the session, get the expiration time
 			// Expiration is stored as Unix epoch time
-			expiry = new Date(Long.parseLong(accessToken.getString("expires_on"))* 1000);
+			//expiry = new Date(Long.parseLong(accessToken.getString("expires_on"))* 1000);
 		}
 		
 		if (accessToken == null || expiry.before(new Date())) {
@@ -129,7 +132,7 @@ public class CalendarOperations extends HttpServlet {
 			session.setAttribute("cal_demo_token", accessToken);
 		}
 		
-		return accessToken.getString("access_token");
+		return null; //accessToken.getString("access_token");
 	}
 	
 	private String BuildPageForm(String accessToken, String user) {

@@ -1,13 +1,10 @@
-package com.outlook.dev.calendardemo;
+package com.outlook.dev.calendardemo.auth;
 
-import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.math.BigInteger;
-import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
@@ -28,46 +25,47 @@ import java.util.List;
 import java.util.UUID;
 
 import javax.json.Json;
-import javax.json.JsonArray;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
-
-import org.apache.http.Consts;
-import org.apache.http.HttpEntity;
+import javax.servlet.ServletContext;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
+
+import com.outlook.dev.calendardemo.dto.User;
+
+import okhttp3.OkHttpClient;
+import okhttp3.logging.HttpLoggingInterceptor;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 public class AuthHelper {
 	// These values are used when doing the single user signup
-	private static final String userSignUpClientId = "YOUR V2 CLIENT ID HERE";
-	private static final String userSignUpClientSecret = "YOUR V2 CLIENT SECRET HERE";
+	private static final String userSignUpClientId = "7ed5e81b-fbd8-4c42-b1be-914381134957";
+	private static final String userSignUpClientSecret = "jfjR6hVuuuDP9QvmpbjJMnt";
 	private static final String userAuthority = "login.microsoftonline.com";
 	private static final String userAuthorizeUrl = "/common/oauth2/v2.0/authorize";
-	private static final String userTokenUrl = "https://" + userAuthority + "/%s/oauth2/v2.0/token";
 	
 	// These values are used when doing the organizational signup
-	private static final String orgSignUpClientId = "YOUR V1 CLIENT ID HERE";
-	private static final String certThumbPrint = "YOUR V1 CERT THUMBPRINT HERE";
+	private static final String orgSignUpClientId = "3082ece1-b32e-4884-a620-5fb68e5688c7";
+	private static final String certThumbPrint = "LcsZc6fLX3Z5uJ0+TFswojfPRIE=";
 	private static final String adminAuthority = "login.microsoftonline.com";
 	private static final String adminAuthorizeUrl = "/common/oauth2/authorize";
 	private static final String adminTokenUrl = "https://" + adminAuthority + "/%s/oauth2/token";
 	
-	public static String getUserSignUpUrl(String redirectUrl, UUID state, UUID nonce) {
-		
-		StringBuilder scopes = new StringBuilder();
-		scopes.append("openid")
+	private static final String assertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
+	private static final String clientCredType = "client_credentials";
+	
+	// Scopes are used in the v2 app model, which is used to do single user signup
+	// This specifies the permissions that the app requires
+	private static final StringBuilder scopes = new StringBuilder()
+			.append("openid")
 			.append(" ").append("offline_access")
 			.append(" ").append("profile")
 			.append(" ").append("https://graph.microsoft.com/calendars.readwrite");
-		
+	
+	public static String getUserSignUpUrl(String redirectUrl, UUID state, UUID nonce) {
 		List<NameValuePair> query = new ArrayList<NameValuePair>();
 		query.add(new BasicNameValuePair("client_id", userSignUpClientId));
 		query.add(new BasicNameValuePair("redirect_uri", redirectUrl));
@@ -125,16 +123,19 @@ public class AuthHelper {
 	}
 	
 	public static JsonObject validateUserToken(String encodedToken, UUID nonce) {
+		// Validate the ID token, matching audience against the user signup client ID
 		return validateIdToken(encodedToken, nonce, userSignUpClientId);
 	}
 	
 	public static JsonObject validateAdminToken(String encodedToken, UUID nonce){
+		// Validate the ID token, matching audience against the org signup client ID
 		return validateIdToken(encodedToken, nonce, orgSignUpClientId);
 	}
 	
 	private static JsonObject validateIdToken(String encodedToken, UUID nonce, String clientId){
 		JsonObject tokenObj = null;
 		
+		// ID tokens are signed JWT, so start by breaking it into its three parts
 		String[] tokenParts = encodedToken.split("\\.");
 		
 		String header = tokenParts[0];
@@ -148,6 +149,8 @@ public class AuthHelper {
 			JsonReader headerReader = Json.createReader(new StringReader(decodedHeader));
 			JsonObject headerObj = headerReader.readObject();
 			headerReader.close();
+			// From the header, check the signing algorithm (alg)
+			// and the key ID (kid)
 			String alg = headerObj.getString("alg");
 			String kid = headerObj.getString("kid");
 			
@@ -186,137 +189,129 @@ public class AuthHelper {
 	
 	private static boolean verifyTokenSignature(String content, String signature, String alg, String kid) throws IOException{
 		
-		// Get MS OpenID token info
-		CloseableHttpClient httpClient = HttpClients.createDefault();
-		HttpGet getKeyInfo = new HttpGet("https://login.microsoftonline.com/common/discovery/keys");
-		CloseableHttpResponse keyInfoResponse = httpClient.execute(getKeyInfo);
-		String keyInfo = null;
-		try {
-			HttpEntity keyInfoEntity = keyInfoResponse.getEntity();
-			BufferedReader keyInfoReader = new BufferedReader(new InputStreamReader(keyInfoEntity.getContent()));
-			keyInfo = keyInfoReader.readLine();
-			keyInfoReader.close();
-		} catch (MalformedURLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		finally {
-			keyInfoResponse.close();
-		}
+		TokenService tokenService = getTokenService();
+		SigningKeys keys = tokenService.getSigningKeys().execute().body();
 		
-		if (keyInfo != null) {
-			JsonReader keyReader = Json.createReader(new StringReader(keyInfo));
-			JsonObject keyObj = keyReader.readObject();
-			keyReader.close();
-			JsonArray keyArray = keyObj.getJsonArray("keys");
-			
-			String mod = null;
-			String exp = null;
-			
-			// Check keys array for key with matching key ID
-			for (int i = 0; i < keyArray.size(); i++) {
-				JsonObject key = keyArray.getJsonObject(i);
-				String keyId = key.getString("kid");
-				if (keyId.equals(kid)) {
-					// We have a match, get the
-					// public key modulus (in the "n" claim)
-					// and the exponent (in the "e" claim)
-					mod = key.getString("n");
-					exp = key.getString("e");
-					break;
-				}
-			}
-			
-			// Did we find our key?
-			if (mod != null && !mod.isEmpty() && exp != null && !exp.isEmpty()){
-				// Values are base64 url-encoded, convert to BigInteger
-				BigInteger modulus = new BigInteger(1, Base64.getUrlDecoder().decode(mod));
-				BigInteger exponent = new BigInteger(Base64.getUrlDecoder().decode(exp));
-				
-				// Decode the signature
-				byte[] decodedSignature = Base64.getUrlDecoder().decode(signature);
-				
-				try {
-					// Create a public key based on the modulus and exponent retrieved from the JWK
-					PublicKey key = KeyFactory.getInstance("RSA").generatePublic(new RSAPublicKeySpec(modulus, exponent));
-					
-					// Create a signature instance for verification, using the SHA-256 algorithm
-					Signature sig = Signature.getInstance("SHA256withRSA");
-					sig.initVerify(key);
-					
-					// Pass in the content that was signed (header + token)
-					sig.update(content.getBytes());
-					
-					// Verify the signature
-					return sig.verify(decodedSignature);
-				} 
-				catch (InvalidKeySpecException ikse) {
-					// TODO Auto-generated catch block
-					ikse.printStackTrace();
-				} 
-				catch (NoSuchAlgorithmException nsae) {
-					// TODO Auto-generated catch block
-					nsae.printStackTrace();
-				} catch (InvalidKeyException ike) {
-					// TODO Auto-generated catch block
-					ike.printStackTrace();
-				} catch (SignatureException se) {
-					// TODO Auto-generated catch block
-					se.printStackTrace();
-				}
-				finally {
-					
-				}
+		String mod = null;
+		String exp = null;
+		
+		for (int i = 0; i < keys.getKeys().length; i++) {
+			if (keys.getKeys()[i].getKeyId().equals(kid)) {
+				mod = keys.getKeys()[i].getModulus();
+				exp = keys.getKeys()[i].getExponent();
+				break;
 			}
 		}
 		
+		// Did we find our key?
+		if (mod != null && !mod.isEmpty() && exp != null && !exp.isEmpty()){
+			// Values are base64 url-encoded, convert to BigInteger
+			BigInteger modulus = new BigInteger(1, Base64.getUrlDecoder().decode(mod));
+			BigInteger exponent = new BigInteger(Base64.getUrlDecoder().decode(exp));
+			
+			// Decode the signature
+			byte[] decodedSignature = Base64.getUrlDecoder().decode(signature);
+			
+			try {
+				// Create a public key based on the modulus and exponent retrieved from the JWK
+				PublicKey key = KeyFactory.getInstance("RSA").generatePublic(new RSAPublicKeySpec(modulus, exponent));
+				
+				// Create a signature instance for verification, using the SHA-256 algorithm
+				Signature sig = Signature.getInstance("SHA256withRSA");
+				sig.initVerify(key);
+				
+				// Pass in the content that was signed (header + token)
+				sig.update(content.getBytes());
+				
+				// Verify the signature
+				return sig.verify(decodedSignature);
+			} 
+			catch (InvalidKeySpecException ikse) {
+				// TODO Auto-generated catch block
+				ikse.printStackTrace();
+			} 
+			catch (NoSuchAlgorithmException nsae) {
+				// TODO Auto-generated catch block
+				nsae.printStackTrace();
+			} catch (InvalidKeyException ike) {
+				// TODO Auto-generated catch block
+				ike.printStackTrace();
+			} catch (SignatureException se) {
+				// TODO Auto-generated catch block
+				se.printStackTrace();
+			}
+		}
+
 		// If we got here something didn't work, so fail validation
 		return false;
 	}
 	
-	public static JsonObject getOrganizationAccessToken(String redirectUrl, String tenantId, InputStream keystoreStream) throws ClientProtocolException, IOException{
-		JsonObject accessTokenObj = null;
+	public static AzureToken getTokenSilently(User user, String redirectUrl, ServletContext ctx){
+		if (user.isConsentedForOrg()) {
+			return getNewOrganizationToken(user, redirectUrl, ctx);
+		}
+		else {
+			return getNewUserToken(user, redirectUrl, ctx);
+		}
+	}
+	
+	private static AzureToken getNewOrganizationToken(User user, String redirectUrl, ServletContext ctx) {
 		
-		String assertion = getClientAssertion(String.format(adminTokenUrl, tenantId), keystoreStream);
-		
-		List<NameValuePair> tokenReqParams = new ArrayList<NameValuePair>();
-		tokenReqParams.add(new BasicNameValuePair("resource", "https://graph.microsoft.com"));
-		tokenReqParams.add(new BasicNameValuePair("client_id", orgSignUpClientId));
-		tokenReqParams.add(new BasicNameValuePair("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"));
-		tokenReqParams.add(new BasicNameValuePair("client_assertion", assertion));
-		tokenReqParams.add(new BasicNameValuePair("grant_type", "client_credentials"));
-		tokenReqParams.add(new BasicNameValuePair("redirect_uri", redirectUrl));
-		
-		UrlEncodedFormEntity tokenReqForm = new UrlEncodedFormEntity(tokenReqParams, Consts.UTF_8);
-		
-		CloseableHttpClient httpClient = HttpClients.createDefault();
-		HttpPost getTokenReq = new HttpPost(String.format(adminTokenUrl, tenantId));
-		getTokenReq.setEntity(tokenReqForm);
-		CloseableHttpResponse tokenResponse = httpClient.execute(getTokenReq);
+		// Get the private key store
+		// This keystore has the private key that corresponds to the public key uploaded to
+		// our app registration.
+		InputStream keystore = ctx.getResourceAsStream("/WEB-INF/calendardemo.jks");
+
 		try {
-			BufferedReader tokenResponseReader = new BufferedReader(new InputStreamReader(tokenResponse.getEntity().getContent()));
-			String accessToken = tokenResponseReader.readLine();
-			tokenResponseReader.close();
-			
-			JsonReader tokenReader = Json.createReader(new StringReader(accessToken));
-			accessTokenObj = tokenReader.readObject();
-			tokenReader.close();
-			
-		} catch (MalformedURLException e) {
+			return getOrganizationAccessToken(redirectUrl, user.getTenantId(), keystore);
+		} catch (ClientProtocolException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		finally {
-			tokenResponse.close();
+		
+		return null;
+	}
+	
+	public static AzureToken getTokenFromAuthCode(User user, String redirectUrl, String authCode) {
+		try {
+			return getUserAccessToken(redirectUrl, user.getTenantId(), "authorization_code", authCode);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	private static AzureToken getNewUserToken(User user, String redirectUrl, ServletContext ctx) {
+		if (user.getRefreshToken() == null) {
+			return null;
 		}
 		
-		return accessTokenObj;
+		try {
+			return getUserAccessToken(redirectUrl, user.getTenantId(), "refresh_token", user.getRefreshToken());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	public static AzureToken getUserAccessToken(String redirectUrl, String tenantId, String requestType, String requestParameter) throws ClientProtocolException, IOException {
+		TokenService tokenService = getTokenService();
+		return tokenService.getUserAccessToken(tenantId, userSignUpClientId, userSignUpClientSecret, 
+				requestType, requestParameter, redirectUrl).execute().body();
+	}
+	
+	public static AzureToken getOrganizationAccessToken(String redirectUrl, String tenantId, InputStream keystoreStream) throws ClientProtocolException, IOException{
+		// Get the client assertion from the keystore
+		String assertion = getClientAssertion(String.format(adminTokenUrl, tenantId), keystoreStream);
+		
+		TokenService tokenService = getTokenService();
+		return tokenService.getOrgAccessToken(tenantId, orgSignUpClientId, assertionType, assertion, 
+				clientCredType, "https://graph.microsoft.com", redirectUrl).execute().body();
 	}
 	
 	private static String getClientAssertion(String tokenUrl, InputStream keystoreStream){
@@ -348,12 +343,14 @@ public class AuthHelper {
 		// Load the keystore which contains our private key
 		try {
 			KeyStore appKeyStore = KeyStore.getInstance("JKS");
+			// TODO: key store password in code is a bad idea
 			char[] password = "poiqwe1!".toCharArray();
 			appKeyStore.load(keystoreStream, password);
 			PrivateKey privKey = (PrivateKey)appKeyStore.getKey("calendardemo", password);
 			
 			Signature sign = Signature.getInstance("SHA256withRSA");
 			sign.initSign(privKey);
+			// Sign the assertion
 			sign.update(unsignedAssertion.getBytes());
 			byte[] signature = sign.sign();
 			String assertionSig = Base64.getUrlEncoder().encodeToString(signature);
@@ -387,5 +384,22 @@ public class AuthHelper {
 		}
 		
 		return assertion;
+	}
+	
+	// Helper function to initialize the calendar service
+	private static TokenService getTokenService() {
+		HttpLoggingInterceptor interceptor = new HttpLoggingInterceptor();
+		interceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
+		
+		OkHttpClient client = new OkHttpClient.Builder().addInterceptor(interceptor).build();
+		
+		Retrofit retrofit = new Retrofit.Builder()
+				.baseUrl("https://login.microsoftonline.com/")
+				.client(client)
+				.addConverterFactory(GsonConverterFactory.create())
+				.build();
+		
+		
+		return retrofit.create(TokenService.class);
 	}
 }

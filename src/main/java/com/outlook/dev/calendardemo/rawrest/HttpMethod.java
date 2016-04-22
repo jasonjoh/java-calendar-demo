@@ -1,4 +1,4 @@
-package com.outlook.dev.calendardemo;
+package com.outlook.dev.calendardemo.rawrest;
 
 public enum HttpMethod {
 	GET,

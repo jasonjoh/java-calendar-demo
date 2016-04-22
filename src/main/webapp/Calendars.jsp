@@ -4,48 +4,96 @@
 <%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
 <t:layout title="Calendars">
-	<!-- Fixed navbar -->
-    <nav class="navbar navbar-default navbar-fixed-top">
-      <div class="container">
-        <div class="navbar-header">
-          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-            <span class="sr-only">Toggle navigation</span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-          </button>
-          <a class="navbar-brand" href="/java-calendar-demo">Java Calendar Demo</a>
-        </div>
-        <div id="navbar" class="navbar-collapse collapse">
-          <ul class="nav navbar-nav">
-          	<c:if test="${user.isConsentedForOrg()}">
-         		<li class="dropdown">
-	              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Change User <span class="caret"></span></a>
-	              <ul class="dropdown-menu">
-	                <li><a href="#">Action</a></li>
-	                <li><a href="#">Another action</a></li>
-	                <li><a href="#">Something else here</a></li>
-	                <li role="separator" class="divider"></li>
-	                <li class="dropdown-header">Nav header</li>
-	                <li><a href="#">Separated link</a></li>
-	                <li><a href="#">One more separated link</a></li>
-	              </ul>
-	            </li>
-          	</c:if>
-          </ul>
-          <ul class="nav navbar-nav navbar-right">
-          	<li><p class="navbar-text">Signed in as ${user.getDisplayName()}</p></li>
-            <li><a href="/java-calendar-demo/SignOut">Sign out</a></li>
-          </ul>
-        </div><!--/.nav-collapse -->
-      </div>
-    </nav>
-	<div class="container body-content" style="padding-top: 70px;">
-		<h2>Calendars</h2>
-		<ul class="list-group">
-			<c:forEach var="calendar" items="${calendars}">
-				<li class="list-group-item">${calendar.getName()}</li>
-			</c:forEach>
-		</ul>
+	<c:if test="${user.isConsentedForOrg()}">
+		<div class="panel panel-default">
+			<div class="panel-heading">Current User</div>
+			<div class="panel-body">
+				<form class="form-inline">
+					<div class="form-group">
+						<select class="form-control" name="selected-user">
+							<c:forEach var="orgUser" items="${users}">
+								<c:choose>
+									<c:when test="${orgUser.getId().equals(selectedUser)}">
+										<option value="${orgUser.getId()}" selected>${orgUser.getDisplayName()}</option>
+									</c:when>
+									<c:otherwise>
+										<option value="${orgUser.getId()}">${orgUser.getDisplayName()}</option>
+									</c:otherwise>
+								</c:choose>
+				           	</c:forEach>
+						</select>
+					</div>
+					<button type="submit" class="btn btn-default">Change User</button>
+				</form>
+			</div>
+		</div>
+	</c:if>
+	<div class="panel panel-default">
+		<div class="panel-heading">Calendars</div>
+		<table class="table">
+			<tr>
+				<th>Calendar Name</th>
+				<th>Color</th>
+				<th></th>
+				<th></th>
+			</tr>
+			<c:if test="${not empty calendars}">
+				<c:forEach var="calendar" items="${calendars}">
+					<tr>
+						<td><a href="/java-calendar-demo/Events?selectedUser=${selectedUser}&calId=${calendar.getId()}">${calendar.getName()}</a></td>
+						<td>${calendar.getColor()}</td>
+						<td>
+							<form class="form-inline" method="post">
+								<input type="hidden" name="calendar-op" value="rename">
+								<input type="hidden" name="selected-user" value="${selectedUser}">
+								<input type="hidden" name="calendar-id" value="${calendar.getId()}">
+								<div class="form-group">
+									<input type="text" class="form-control" name="new-name" placeholder="New Name">
+								</div>
+								<button type="submit" class="btn btn-default">Rename</button>
+							</form>
+						</td>
+						<td>
+							<form class="form-inline" method="post">
+								<input type="hidden" name="calendar-op" value="delete">
+								<input type="hidden" name="selected-user" value="${selectedUser}">
+								<input type="hidden" name="calendar-id" value="${calendar.getId()}">
+								<button type="submit" class="btn btn-default">Delete</button>
+							</form>
+						</td>
+					</tr>
+				</c:forEach>
+			</c:if>
+		</table>
+	</div>
+	<div class="panel panel-default">
+		<div class="panel-heading">Add Calendar</div>
+		<div class="panel-body">Use the form below to create a new calendar</div>
+		<div class="container" style="padding-bottom: 15px;">
+			<form class="form-inline" method="post">
+				<input type="hidden" name="calendar-op" value="create">
+				<input type="hidden" name="selected-user" value="${selectedUser}">
+				<div class="form-group">
+					<label for="new-cal-name">Calendar Name</label>
+					<input type="text" class="form-control" id="new-cal-name" name="new-cal-name">
+				</div>
+				<div class="form-group">
+					<label for="new-cal-color">Calendar Color</label>
+					<select class="form-control" id="new-cal-color" name="new-cal-color">
+						<option value="auto">Auto</option>
+						<option value="lightBlue">Light Blue</option>
+						<option value="lightGreen">Light Green</option>
+						<option value="lightOrange">Light Orange</option>
+						<option value="lightGray">Light Gray</option>
+						<option value="lightYellow">Light Yellow</option>
+						<option value="lightTeal">Light Teal</option>
+						<option value="lightPink">Light Pink</option>
+						<option value="lightBrown">Light Brown</option>
+						<option value="lightRed">Light Red</option>
+					</select>
+				</div>
+				<button type="submit" class="btn btn-default">Create Calendar</button>
+			</form>
+		</div>
 	</div>
 </t:layout>

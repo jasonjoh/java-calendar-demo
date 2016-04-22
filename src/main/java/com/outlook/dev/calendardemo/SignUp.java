@@ -10,6 +10,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import com.outlook.dev.calendardemo.auth.AuthHelper;
+
 /**
  * Servlet implementation class SignUp
  */
@@ -37,6 +39,7 @@ public class SignUp extends HttpServlet {
 			session.setAttribute("auth_state", state);
 			session.setAttribute("auth_nonce", nonce);
 			
+			// Build an org signup and user signup URL and pass both to the page
 			String adminSignUpUrl = AuthHelper.getAdminSignUpUrl(adminRedirect, state, nonce);
 			String userSignUpUrl = AuthHelper.getUserSignUpUrl(userRedirect, state, nonce);
 			

@@ -1,4 +1,4 @@
-package com.outlook.dev.calendardemo;
+package com.outlook.dev.calendardemo.rawrest;
 
 import java.util.List;
 
