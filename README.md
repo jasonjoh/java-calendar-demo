@@ -22,13 +22,13 @@ For the client credential flow, we will register an app in the Azure management 
 
 1. Locate the **Application Secrets** section and choose **Generate New Password**. Copy the password now and save it to a safe place. Once you've copied the password, click **Ok**.
 
-  ![](.\images\app-new-password.PNG)
+  ![](./images/app-new-password.PNG)
   
 1. Locate the **Platforms** section and choose **Add Platform**. Choose **Web**, then enter `http://localhost:8080/java-calendar-demo/AuthorizeUser` under **Redirect URIs**.
 
 1. Choose **Save** to complete the registration.
 
-  ![](.\images\app-portal-registration.PNG)
+  ![](./images/app-portal-registration.PNG)
 
 1. Copy the **Application Id** for the app. Open the `./src/main/java/com/outlook/dev/calendardemo/AuthHelper.java` file and replace the `YOUR V2 CLIENT ID HERE` string with the application ID.
 
@@ -65,19 +65,19 @@ Next we need to provide the public key for our new certificate to Azure AD so th
 
 1. In the left-hand navigation, select **Active Directory**.
 
-  ![](.\images\azure-portal-ad.PNG)
+  ![](./images/azure-portal-ad.PNG)
   
 1. In the main window, select **Microsoft**.
 
-  ![](.\images\azure-portal-msft.PNG)
+  ![](./images/azure-portal-msft.PNG)
   
 1. Select **Applications** in the top nav.
 
-  ![](.\images\azure-portal-apps.PNG)
+  ![](./images/azure-portal-apps.PNG)
   
 1. Select **Add** in the bottom toolbar.
 
-  ![](.\images\azure-portal-add-app.PNG)
+  ![](./images/azure-portal-add-app.PNG)
   
 1. In the dialog, select **Add an application that my organization is developing**.
 
@@ -95,7 +95,7 @@ Next we need to provide the public key for our new certificate to Azure AD so th
   - Read directory data
   - Read and write calendars in all mailboxes
   
-  ![](.\images\azure-portal-permissions.PNG)
+  ![](./images/azure-portal-permissions.PNG)
   
 1. Select the **Save** button in the bottom toolbar. Wait for the save operation to complete, then select the **Manage Manifest** button in the bottom toolbar, and choose **Download Manifest**. Download the manifest to your machine.
 
