@@ -1,16 +1,44 @@
 # Java Calendar Demo
 
-This sample Java Web App implements the [client credential](https://msdn.microsoft.com/en-us/library/azure/dn645543.aspx) authorization flow to gain access to all calendar's in an Office 365 organization via the [Microsoft Graph](http://graph.microsoft.io).
+This sample Java Web App implements both the [authorization code grant](https://msdn.microsoft.com/en-us/library/azure/dn645542.aspx) flow to get access to a single user's calendar and the [client credential](https://msdn.microsoft.com/en-us/library/azure/dn645543.aspx) flow to gain access to all calendar's in an Office 365 organization via the [Microsoft Graph](http://graph.microsoft.io).
+
+The authorization code grant flow will use the [Azure v2 app model](https://azure.microsoft.com/en-us/documentation/articles/active-directory-appmodel-v2-overview/), which will allow our app to access calendars in both Office 365 and Outlook.com. The client credential flow will use the v1 app model, which only supports Office 365. 
 
 ## Prerequisites
 
-This project was created using the [Eclipse JEE Mars IDE](http://www.eclipse.org/), Mars.2 Release (4.5.2), using Tomcat 7.0 as the web server.
+This project was created using the [Eclipse JEE Mars IDE](http://www.eclipse.org/), Mars.2 Release (4.5.2), using Tomcat 7.0 as the web server. It also makes heavy use of [Retrofit](http://square.github.io/retrofit/) to make API calls to ghe Graph.
 
 ## Setting up the project
 
+Because we are using two different auth flows against two different app models, we will need to create two app registrations. For the authorization code grant flow, we will register an app at https://apps.dev.microsoft.com. 
+
+For the client credential flow, we will register an app in the Azure management portal.
+
+### Creating the registration for authorization code grant flow
+
+1. Open a browser and go to https://apps.dev.microsoft.com. Sign in with an Office 365 account or a Microsoft account (e.g. outlook.com).
+
+1. Select **Add an app**. Enter a name for the app and choose **Create application**.
+
+1. Locate the **Application Secrets** section and choose **Generate New Password**. Copy the password now and save it to a safe place. Once you've copied the password, click **Ok**.
+
+  ![](.\images\app-new-password.PNG)
+  
+1. Locate the **Platforms** section and choose **Add Platform**. Choose **Web**, then enter `http://localhost:8080/java-calendar-demo/AuthorizeUser` under **Redirect URIs**.
+
+1. Choose **Save** to complete the registration.
+
+  ![](.\images\app-portal-registration.PNG)
+
+1. Copy the **Application Id** for the app. Open the `./src/main/java/com/outlook/dev/calendardemo/AuthHelper.java` file and replace the `YOUR V2 CLIENT ID HERE` string with the application ID.
+
+1. Replace the `YOUR V2 CLIENT SECRET HERE` with the app password you generated.
+
+### Creating the registration for client credentials flow
+
 In order to get access tokens for the Microsoft Graph with access to all calendars, the app must use a certficate to sign token requests. So the first order of business is to generate the necessary certificate and get the required information.
 
-## Generating a self-signed certificate
+#### Generating a self-signed certificate
 
 1. Use **keytool** (included with Java insallations in `%JAVA_HOME%\bin`) to generate a certificate in a keystore.
   1. Open a command prompt/shell (on Windows be sure to open Command Prompt as an Administrator) and set the current directory to `%JAVA_HOME%\bin`.
@@ -29,7 +57,7 @@ In order to get access tokens for the Microsoft Graph with access to all calenda
     
   1. Copy the `calendardemo.jks` file to `.\src\main\webapp\WEB-INF`. Copy the calendardemo.cer file to `.\GenKeyCreds\`.
   
-## Register the app and upload public key to Azure AD
+#### Register the app and upload public key to Azure AD
 
 Next we need to provide the public key for our new certificate to Azure AD so they can verify the signature on our token requests.
 
@@ -108,9 +136,10 @@ Next we need to provide the public key for our new certificate to Azure AD so th
   
   1. Switch back to the Azure management portal. Select the **Manage Manifest** button and choose **Upload Manifest**. Browse to the manifest file you just updated and upload.
   
+1. Open the `./src/main/java/com/outlook/dev/calendardemo/AuthHelper.java` file and replace the `YOUR V1 CLIENT ID HERE` string with the client ID you copied after creating the app in Azure.
+1. Replace the `YOUR CERT THUMBPRINT HERE` with the value of `customKeyIdentifier` from your app's manifest.
+  
 ## Run the sample
 
-1. Open the `java-calendar-demo` project in Eclipse. Open the `./src/main/java/com/outlook/dev/calendardemo/AuthHelper.java` file and replace the `YOUR V1 CLIENT ID HERE` string with the client ID you copied after creating the app in Azure.
-1. Replace the `YOUR V1 CERT THUMBPRINT HERE` with the value of `customKeyIdentifier` from your app's manifest.
 1. Save the file and run the app.
 1. Browse to `http://localhost:8080/java-calendar-demo`.
